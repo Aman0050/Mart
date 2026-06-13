@@ -136,7 +136,7 @@ export function FileUploader({
           <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary transition-all duration-300 ease-out" 
-              style={{ width: \`\${progress}%\` }} 
+              style={{ width: `${progress}%` }} 
             />
           </div>
         </div>

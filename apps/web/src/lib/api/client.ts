@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { useAuthStore } from '@/store/auth.store';
 
 export const apiClient = axios.create({
   baseURL: typeof window !== 'undefined'
@@ -83,7 +82,8 @@ apiClient.interceptors.response.use(
         
         const newAccessToken = data.data?.accessToken || data.accessToken;
         
-        // Update the access token in store
+        // Update the access token in store (dynamic import to avoid circular dependency)
+        const { useAuthStore } = await import('@/store/auth.store');
         useAuthStore.getState().setAccessToken(newAccessToken);
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -91,6 +91,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
+        const { useAuthStore } = await import('@/store/auth.store');
         useAuthStore.getState().logout();
         
         // Optionally redirect to login
