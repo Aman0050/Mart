@@ -1,0 +1,34 @@
+{
+  "name": "@nexmarto/admin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@nexmarto/types": "*",
+    "@nexmarto/ui": "*",
+    "zustand": "^4.5.2",
+    "@tanstack/react-query": "^5.32.0",
+    "lucide-react": "^0.372.0",
+    "axios": "^1.6.8",
+    "recharts": "^2.12.5",
+    "react-hook-form": "^7.51.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5",
+    "tailwindcss": "^3.4.3",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19",
+    "@nexmarto/config": "*"
+  }
+}

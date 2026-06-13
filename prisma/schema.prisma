@@ -1,0 +1,785 @@
+// ============================================================
+// NEXMARTO — PRISMA SCHEMA
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────
+
+enum UserRole {
+  buyer
+  seller
+  admin
+  operations_admin
+  support_admin
+  super_admin
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum BusinessType {
+  manufacturer
+  wholesaler
+  retailer
+  trader
+  service_provider
+  exporter
+  importer
+  distributor
+}
+
+enum CompanyStatus {
+  active
+  pending_review
+  suspended
+  deleted
+}
+
+enum AddressType {
+  headquarters
+  branch
+  warehouse
+  factory
+  registered_office
+}
+
+enum ProductStatus {
+  draft
+  pending
+  active
+  rejected
+  archived
+}
+
+enum PriceUnit {
+  piece
+  kg
+  gram
+  ton
+  liter
+  meter
+  box
+  set
+  pair
+  dozen
+  bag
+  roll
+}
+
+enum LeadStatus {
+  new
+  contacted
+  quoted
+  closed
+  rejected
+}
+
+enum LeadPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum LeadSource {
+  product_page
+  company_profile
+  search_page
+  direct_enquiry
+}
+
+enum NotificationType {
+  lead_created
+  lead_updated
+  new_message
+  lead_closed
+}
+
+enum ActivityType {
+  lead_created
+  lead_viewed
+  status_updated
+  note_added
+  message_sent
+}
+
+enum MessageType {
+  text
+  quote
+  image
+  file
+  system
+}
+
+enum RfqStatus {
+  open
+  closed
+  fulfilled
+  expired
+}
+
+enum RfqResponseStatus {
+  submitted
+  shortlisted
+  accepted
+  rejected
+}
+
+enum DocumentType {
+  gst_certificate
+  pan_card
+  trade_license
+  msme_certificate
+  incorporation_certificate
+  iso_certificate
+  import_export_code
+  fssai_license
+  cancelled_cheque
+  other
+}
+
+enum DocumentVerificationStatus {
+  pending
+  under_review
+  verified
+  rejected
+  expired
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+  pending_payment
+}
+
+enum PaymentStatus {
+  pending
+  success
+  failed
+  refunded
+  partially_refunded
+}
+
+enum PaymentMethod {
+  upi
+  card
+  netbanking
+  wallet
+  neft
+  rtgs
+  cheque
+  cash
+}
+
+enum PaymentGateway {
+  razorpay
+  payu
+  cashfree
+  stripe
+  manual
+}
+
+enum FeedbackEvent {
+  COMPANY_COMPLETED
+  PRODUCTS_UPLOADED
+  FIRST_LEAD_RECEIVED
+  FIVE_LEADS_RECEIVED
+  FIRST_ENQUIRY_SENT
+  FIRST_RFQ_CREATED
+  FIVE_SEARCHES_COMPLETED
+  SUPPLIER_RESPONSE_RECEIVED
+}
+
+// ── Models ────────────────────────────────────────────────
+
+model User {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName       String     @map("full_name") @db.VarChar(255)
+  email          String?    @unique @db.VarChar(255)
+  phone          String     @unique @db.VarChar(20)
+  passwordHash   String?    @map("password_hash")
+  role           UserRole   @default(buyer)
+  status         UserStatus @default(active)
+  emailVerified  Boolean    @default(false) @map("email_verified")
+  phoneVerified  Boolean    @default(false) @map("phone_verified")
+  refreshToken   String?    @map("refresh_token")
+  lastLoginAt         DateTime?  @map("last_login_at")
+  feedbackLastShownAt DateTime?  @map("feedback_last_shown_at")
+  feedbackDismissedAt DateTime?  @map("feedback_dismissed_at")
+  feedbackCompletedAt DateTime?  @map("feedback_completed_at")
+  feedbackCount       Int        @default(0) @map("feedback_count")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  ownedCompany        Company?              @relation("CompanyOwner")
+  buyerLeads          Lead[]                @relation("BuyerLeads")
+  sellerLeads         Lead[]                @relation("SellerLeads")
+  sentMessages        LeadMessage[]
+  buyerRfqs           Rfq[]
+  rfqResponses        RfqResponse[]         @relation("SellerRfqResponses")
+  payments            Payment[]
+  verifiedDocuments   CompanyDocument[]     @relation("DocumentVerifier")
+  auditLogs             AuditLog[]
+  reports               Report[]
+  feedbacks             Feedback[]
+  feedbackEventHistory  FeedbackEventHistory[]
+  searchQueries         SearchQuery[]
+
+  @@map("users")
+}
+
+model Company {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId         String?       @unique @map("owner_id") @db.Uuid
+  companyName     String        @map("company_name") @db.VarChar(255)
+  slug            String?       @unique @db.VarChar(255)
+  gstNumber       String?       @unique @map("gst_number") @db.VarChar(50)
+  panNumber       String?       @unique @map("pan_number") @db.VarChar(50)
+  businessType    BusinessType? @map("business_type")
+  yearEstablished Int?          @map("year_established")
+  employeeCount   Int?          @map("employee_count")
+  annualTurnover  String?       @map("annual_turnover") @db.VarChar(100)
+  website         String?       @db.VarChar(255)
+  description     String?
+  logoUrl         String?       @map("logo_url")
+  coverImageUrl   String?       @map("cover_image_url")
+  verified        Boolean       @default(false)
+  status          CompanyStatus @default(pending_review)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  owner         User?              @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  addresses     CompanyAddress[]
+  gallery       CompanyGallery[]
+  products      Product[]
+  categories    Category[]
+  documents     CompanyDocument[]
+  leads         Lead[]
+  rfqResponses  RfqResponse[]
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@map("companies")
+}
+
+model CompanyAddress {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String      @map("company_id") @db.Uuid
+  addressType  AddressType @default(headquarters) @map("address_type")
+  isPrimary    Boolean     @default(false) @map("is_primary")
+  addressLine1 String      @map("address_line1")
+  addressLine2 String?     @map("address_line2")
+  city         String      @db.VarChar(100)
+  state        String      @db.VarChar(100)
+  country      String      @default("India") @db.VarChar(100)
+  postalCode   String      @map("postal_code") @db.VarChar(20)
+  latitude     Decimal?    @db.Decimal(10, 8)
+  longitude    Decimal?    @db.Decimal(11, 8)
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_addresses")
+}
+
+model CompanyGallery {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  imageUrl  String   @map("image_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("company_gallery")
+}
+
+model Category {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId    String?  @map("parent_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  description String?
+  imageUrl    String?  @map("image_url")
+  icon        String?
+  seoTitle    String?  @map("seo_title") @db.VarChar(255)
+  seoDescription String? @map("seo_description")
+  level       Int      @default(0)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+  companies Company[]
+  rfqs     Rfq[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String        @map("company_id") @db.Uuid
+  categoryId           String?       @map("category_id") @db.Uuid
+  title                String        @db.VarChar(255)
+  slug                 String        @unique @db.VarChar(255)
+  shortDescription     String?       @map("short_description")
+  description          String?
+  brandName            String?       @map("brand_name") @db.VarChar(255)
+  sku                  String?       @db.VarChar(100)
+  price                Decimal?      @db.Decimal(12, 2)
+  minPrice             Decimal?      @map("min_price") @db.Decimal(12, 2)
+  maxPrice             Decimal?      @map("max_price") @db.Decimal(12, 2)
+  priceUnit            PriceUnit?    @default(piece) @map("price_unit")
+  isGstInclusive       Boolean       @default(false) @map("is_gst_inclusive")
+  gstPercentage        Decimal?      @map("gst_percentage") @db.Decimal(5, 2)
+  minimumOrderQuantity Int           @default(1) @map("minimum_order_quantity")
+  stockQuantity        Int?          @map("stock_quantity")
+  supplyAbility        String?       @map("supply_ability") @db.VarChar(255)
+  deliveryTime         String?       @map("delivery_time") @db.VarChar(100)
+  status               ProductStatus @default(pending)
+  featured             Boolean       @default(false)
+  viewCount            Int           @default(0) @map("view_count")
+  seoTitle             String?       @map("seo_title") @db.VarChar(255)
+  seoDescription       String?       @map("seo_description")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  company        Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category       Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  images         ProductImage[]
+  specifications ProductSpecification[]
+  views          ProductView[]
+  leads          Lead[]
+
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([featured])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  imageUrl  String   @map("image_url")
+  altText   String?  @map("alt_text") @db.VarChar(255)
+  isPrimary Boolean  @default(false) @map("is_primary")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductSpecification {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId  String  @map("product_id") @db.Uuid
+  specName   String  @map("spec_name") @db.VarChar(255)
+  specValue  String  @map("spec_value")
+  specUnit   String? @map("spec_unit") @db.VarChar(50)
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_specifications")
+}
+
+model ProductView {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_views")
+}
+
+model Lead {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadNumber       String       @unique @map("lead_number") @db.VarChar(50)
+  productId        String?      @map("product_id") @db.Uuid
+  companyId        String?      @map("company_id") @db.Uuid
+  buyerId          String       @map("buyer_id") @db.Uuid
+  sellerId         String       @map("seller_id") @db.Uuid
+  subject          String?      @db.VarChar(255)
+  message          String?
+  quantityRequired Int?         @map("quantity_required")
+  budget           Decimal?     @db.Decimal(12, 2)
+  status           LeadStatus   @default(new)
+  source           LeadSource   @default(product_page)
+  priority         LeadPriority @default(medium)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  closedAt         DateTime?    @map("closed_at")
+
+  product  Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  company  Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  buyer    User                @relation("BuyerLeads", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller   User                @relation("SellerLeads", fields: [sellerId], references: [id], onDelete: Cascade)
+  messages LeadMessage[]
+  notes    LeadNote[]
+  history  LeadStatusHistory[]
+  timeline LeadActivity[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LeadMessage {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId         String      @map("lead_id") @db.Uuid
+  senderId       String      @map("sender_id") @db.Uuid
+  messageType    MessageType @default(text) @map("message_type")
+  message        String?
+  attachmentUrl  String?     @map("attachment_url")
+  attachmentName String?     @map("attachment_name") @db.VarChar(255)
+  isRead         Boolean     @default(false) @map("is_read")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([senderId])
+  @@map("lead_messages")
+}
+
+model LeadNote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId    String   @map("lead_id") @db.Uuid
+  sellerId  String   @map("seller_id") @db.Uuid
+  note      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([sellerId])
+  @@map("lead_notes")
+}
+
+model LeadStatusHistory {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId         String     @map("lead_id") @db.Uuid
+  previousStatus LeadStatus @map("previous_status")
+  newStatus      LeadStatus @map("new_status")
+  changedBy      String     @map("changed_by") @db.Uuid
+  changedAt      DateTime   @default(now()) @map("changed_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_status_history")
+}
+
+model LeadActivity {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leadId       String       @map("lead_id") @db.Uuid
+  activityType ActivityType @map("activity_type")
+  description  String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_activities")
+}
+
+model Notification {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  title       String           @db.VarChar(255)
+  description String?
+  type        NotificationType
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+model Rfq {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId          String    @map("buyer_id") @db.Uuid
+  categoryId       String?   @map("category_id") @db.Uuid
+  title            String    @db.VarChar(255)
+  description      String?
+  quantity         Int?
+  unit             PriceUnit?
+  budget           Decimal?  @db.Decimal(12, 2)
+  deliveryLocation String?   @map("delivery_location") @db.VarChar(255)
+  deadline         DateTime?
+  status           RfqStatus @default(open)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  expiresAt        DateTime? @map("expires_at")
+
+  buyer     User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  category  Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  responses RfqResponse[]
+
+  @@index([buyerId])
+  @@index([categoryId])
+  @@index([status])
+  @@map("rfqs")
+}
+
+model RfqResponse {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rfqId        String            @map("rfq_id") @db.Uuid
+  supplierId   String            @map("supplier_id") @db.Uuid
+  sellerId     String?           @map("seller_id") @db.Uuid
+  quotedPrice  Decimal           @map("quoted_price") @db.Decimal(12, 2)
+  priceUnit    PriceUnit?        @map("price_unit")
+  deliveryTime String?           @map("delivery_time") @db.VarChar(100)
+  message      String?
+  status       RfqResponseStatus @default(submitted)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  rfq      Rfq     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier Company @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  seller   User?   @relation("SellerRfqResponses", fields: [sellerId], references: [id], onDelete: SetNull)
+
+  @@unique([rfqId, supplierId])
+  @@index([rfqId])
+  @@index([supplierId])
+  @@map("rfq_responses")
+}
+
+model CompanyDocument {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId           String                     @map("company_id") @db.Uuid
+  documentType        DocumentType               @map("document_type")
+  documentUrl         String                     @map("document_url")
+  documentNumber      String?                    @map("document_number") @db.VarChar(100)
+  verificationStatus  DocumentVerificationStatus @default(pending) @map("verification_status")
+  verifiedBy          String?                    @map("verified_by") @db.Uuid
+  verifiedAt          DateTime?                  @map("verified_at")
+  rejectionReason     String?                    @map("rejection_reason")
+  expiresAt           DateTime?                  @map("expires_at")
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  verifier User?   @relation("DocumentVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([verificationStatus])
+  @@map("company_documents")
+}
+
+model Plan {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String   @db.VarChar(100)
+  slug                String   @unique @db.VarChar(100)
+  description         String?
+  price               Decimal  @default(0) @db.Decimal(12, 2)
+  durationDays        Int      @map("duration_days")
+  maxProducts         Int?     @map("max_products")
+  maxLeadsPerMonth    Int?     @map("max_leads_per_month")
+  maxRfqResponses     Int?     @map("max_rfq_responses")
+  canAccessRfqBoard   Boolean  @default(false) @map("can_access_rfq_board")
+  featuredListing     Boolean  @default(false) @map("featured_listing")
+  verifiedBadge       Boolean  @default(false) @map("verified_badge")
+  prioritySupport     Boolean  @default(false) @map("priority_support")
+  isActive            Boolean  @default(true) @map("is_active")
+  sortOrder           Int      @default(0) @map("sort_order")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String             @map("company_id") @db.Uuid
+  planId       String             @map("plan_id") @db.Uuid
+  startDate    DateTime           @default(now()) @map("start_date")
+  endDate      DateTime           @map("end_date")
+  amountPaid   Decimal?           @map("amount_paid") @db.Decimal(12, 2)
+  paymentRef   String?            @map("payment_ref") @db.VarChar(255)
+  couponCode   String?            @map("coupon_code") @db.VarChar(100)
+  status       SubscriptionStatus @default(pending_payment)
+  cancelledAt  DateTime?          @map("cancelled_at")
+  renewedFrom  String?            @map("renewed_from") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan        Plan          @relation(fields: [planId], references: [id])
+  renewedSub  Subscription? @relation("RenewalChain", fields: [renewedFrom], references: [id])
+  renewals    Subscription[] @relation("RenewalChain")
+  payments    Payment[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([endDate])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String         @map("company_id") @db.Uuid
+  subscriptionId    String?        @map("subscription_id") @db.Uuid
+  paidBy            String?        @map("paid_by") @db.Uuid
+  amount            Decimal        @db.Decimal(12, 2)
+  taxAmount         Decimal        @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  totalAmount       Decimal        @map("total_amount") @db.Decimal(12, 2)
+  currency          String         @default("INR") @db.Char(3)
+  paymentGateway    PaymentGateway @default(razorpay) @map("payment_gateway")
+  paymentMethod     PaymentMethod? @map("payment_method")
+  gatewayOrderId    String?        @map("gateway_order_id") @db.VarChar(255)
+  gatewayPaymentId  String?        @unique @map("gateway_payment_id") @db.VarChar(255)
+  gatewaySignature  String?        @map("gateway_signature")
+  invoiceNumber     String?        @unique @map("invoice_number") @db.VarChar(100)
+  invoiceUrl        String?        @map("invoice_url")
+  refundedAmount    Decimal        @default(0) @map("refunded_amount") @db.Decimal(12, 2)
+  refundRef         String?        @map("refund_ref") @db.VarChar(255)
+  refundedAt        DateTime?      @map("refunded_at")
+  status            PaymentStatus  @default(pending)
+  failureReason     String?        @map("failure_reason")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  paidByUser   User?         @relation(fields: [paidBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([gatewayOrderId])
+  @@map("payments")
+}
+
+model VerificationToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  type      TokenType
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("verification_tokens")
+}
+
+enum TokenType {
+  email_verification
+  password_reset
+  phone_verification
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId    String   @map("admin_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(255)
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Report {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportType  String   @map("report_type") @db.VarChar(100)
+  generatedBy String   @map("generated_by") @db.Uuid
+  filters     Json?
+  fileUrl     String?  @map("file_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [generatedBy], references: [id], onDelete: Restrict)
+
+  @@index([generatedBy])
+  @@index([reportType])
+  @@map("reports")
+}
+
+model Feedback {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      UserRole
+  rating    Int
+  category  String   @db.VarChar(100)
+  answers   Json?
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([role])
+  @@map("feedbacks")
+}
+
+model FeedbackEventHistory {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  event     FeedbackEvent
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("feedback_event_history")
+}
+
+model SearchQuery {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  query        String   @db.VarChar(255)
+  userId       String?  @map("user_id") @db.Uuid
+  resultsCount Int      @default(0) @map("results_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([query])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("search_queries")
+}
