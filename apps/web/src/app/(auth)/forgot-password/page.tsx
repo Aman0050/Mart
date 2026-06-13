@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button, Input, Label } from '@nexmarto/ui';
-import { apiClient } from '@/lib/api/client';
+import { apiClient } from '../../../lib/api/client';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const forgotPasswordSchema = z.object({

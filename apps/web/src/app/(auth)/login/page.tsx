@@ -9,8 +9,8 @@ import * as z from 'zod';
 import { Button } from '@nexmarto/ui';
 import { Input } from '@nexmarto/ui';
 import { Label } from '@nexmarto/ui';
-import { apiClient } from '@/lib/api/client';
-import { useAuthStore } from '@/store/auth.store';
+import { apiClient } from '../../../lib/api/client';
+import { useAuthStore } from '../../../store/auth.store';
 import { Mail, Lock, ArrowRight, Github } from 'lucide-react';
 import { toast } from 'sonner';
 

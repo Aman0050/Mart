@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@nexmarto/ui';
-import { apiClient } from '@/lib/api/client';
+import { apiClient } from '../../../lib/api/client';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 function VerifyEmailContent() {

@@ -9,8 +9,8 @@ import * as z from 'zod';
 import { Button } from '@nexmarto/ui';
 import { Input } from '@nexmarto/ui';
 import { Label } from '@nexmarto/ui';
-import { apiClient } from '@/lib/api/client';
-import { useAuthStore } from '@/store/auth.store';
+import { apiClient } from '../../../lib/api/client';
+import { useAuthStore } from '../../../store/auth.store';
 import { User, Mail, Lock, ArrowRight, Building2, ShoppingBag } from 'lucide-react';
 import { cn } from '@nexmarto/ui';
 
